@@ -4,7 +4,7 @@
     {
         static void Main()
         {
-            CfgMan.CfgMan m_CfgMan = new("test.cfg");
+            CfgMan.CfgMan m_CfgMan = new("test.cfwg");
 
             Console.WriteLine(m_CfgMan.read("string"));
         }

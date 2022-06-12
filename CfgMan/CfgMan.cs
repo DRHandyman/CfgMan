@@ -12,6 +12,8 @@
 
         public CfgMan(String FilePath)
         {
+            ScanFileExtension(FilePath);
+
             for (int i = 0; i < System.IO.File.ReadAllLines(FilePath).Count(); i++)
                 lines.Add(System.IO.File.ReadAllLines(FilePath)[i]);
 
@@ -23,6 +25,31 @@
 
                 if (LineIsString(ref line))
                     strs.Add(new(GetStringName(ref line), GetStringValue(line)));
+            }
+        }
+
+        void PrintAnError(String Message)
+        {
+            Console.WriteLine($"[CfgMan][Error]: {Message}");
+        }
+
+        void ScanFileExtension(String FilePath)
+        {
+            bool result = false;
+
+            string[] AllowedExtensions = { ".cfg", ".conf", ".config" };
+
+            foreach (var i in AllowedExtensions)
+            {
+                if (System.IO.Path.GetExtension(FilePath) == i)
+                    result = true;
+            }
+
+            if (!result)
+            {
+                PrintAnError($"The \"{FilePath}\" file extension is not allowed. Acceptable formats: {String.Join(", ", AllowedExtensions)}.");
+
+                Environment.Exit(1);
             }
         }
 
@@ -52,7 +79,7 @@
                 Console.WriteLine(i);
         }
 
-        int StringGetFirstCharacterIndex(String str, char c)
+        int StringGetFirstCharacterIndex(String str, Char c)
         {
             for (int i = 0; i < str.Length; i++)
             {
@@ -63,7 +90,7 @@
             return -1;
         }
 
-        int StringGetLastCharacterIndex(String str, char c)
+        int StringGetLastCharacterIndex(String str, Char c)
         {
             int output = -1;
 
@@ -92,7 +119,7 @@
             return line.Substring(0, line.IndexOf('='));
         }
 
-        String GetStringValue(string line)
+        String GetStringValue(String line)
         {
             string output = "";
 
