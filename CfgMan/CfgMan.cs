@@ -1,30 +1,92 @@
 ﻿namespace CfgMan
 {
-    internal class CfgMan
+    internal class CfgManipulator
     {
+        public enum Types
+        {
+            STRING = 0,
+            SECTION = 1
+        }
+
         List<String> lines = new();
 
         List<Tuple<String, String>> strs = new();
 
-        List<Tuple<String, List<String>>> sections;
+        List<Tuple<String, List<Tuple<String, String>>>> sections = new();
 
-        public CfgMan() { }
+        public CfgManipulator() { }
 
-        public CfgMan(String FilePath)
+        public CfgManipulator(String FilePath)
         {
-            ScanFileExtension(FilePath);
-
             for (int i = 0; i < System.IO.File.ReadAllLines(FilePath).Count(); i++)
                 lines.Add(System.IO.File.ReadAllLines(FilePath)[i]);
 
             FileRemoveExtraLines();
 
-            foreach (var s in lines)
-            {
-                String line = s;
+            ParseStrings();
+            ParseSections();
+        }
 
-                if (LineIsString(ref line))
-                    strs.Add(new(GetStringName(ref line), GetStringValue(line)));
+
+        public static bool FileExists(String FilePath)
+        {
+            return System.IO.File.Exists(FilePath);
+        }
+
+        void ParseStrings()
+        {
+            foreach (var i in lines)
+            {
+                if (!String.IsNullOrEmpty(i))
+                {
+                    String line = i;
+
+                    if (LineIsSection(ref line))
+                        break;
+                    else if (LineIsString(ref line))
+                    {
+                        strs.RemoveAll(x => x.Item1 == GetStringName(ref line));
+                        strs.Add(new(GetStringName(ref line), GetStringValue(i)));
+                    }
+                }
+            }
+        }
+
+        String GetSectionName(String Section)
+        {
+            return Section.Substring(StringGetFirstCharacterIndex(Section, '[') + 1,
+                StringGetLastCharacterIndex(Section, ']') - 1);
+        }
+
+        void ParseSections()
+        {
+            bool CanContinue = false;
+
+            int CurrentSectionID = -1;
+
+            foreach (var i in lines)
+            {
+                String line = i;
+
+                if (LineIsSection(ref line) && !CanContinue)
+                    CanContinue = true;
+
+                if (CanContinue)
+                {
+                    if (LineIsSection(ref line))
+                    {
+                        CurrentSectionID++;
+
+                        sections.Add(new(GetSectionName(line), new()));
+
+                        continue;
+                    }
+                    if (CurrentSectionID > -1)
+                    {
+                        if (LineIsString(ref line))
+                            sections[CurrentSectionID].Item2.Add(new(GetStringName(ref line), GetStringValue(line)));
+                    }
+                }
             }
         }
 
@@ -33,29 +95,9 @@
             Console.WriteLine($"[CfgMan][Error]: {Message}");
         }
 
-        void ScanFileExtension(String FilePath)
-        {
-            bool result = false;
-
-            string[] AllowedExtensions = { ".cfg", ".conf", ".config" };
-
-            foreach (var i in AllowedExtensions)
-            {
-                if (System.IO.Path.GetExtension(FilePath) == i)
-                    result = true;
-            }
-
-            if (!result)
-            {
-                PrintAnError($"The \"{FilePath}\" file extension is not allowed. Acceptable formats: {String.Join(", ", AllowedExtensions)}.");
-
-                Environment.Exit(1);
-            }
-        }
-
         public void Open(String FilePath)
         {
-            new CfgMan(FilePath);
+            new CfgManipulator(FilePath);
         }
 
         void FileRemoveExtraLines()
@@ -74,9 +116,6 @@
                     String.IsNullOrEmpty(lines[i + 1]) && i + 1 <= lines.Count)
                     lines.RemoveAt(i);
             }
-
-            foreach (var i in lines)
-                Console.WriteLine(i);
         }
 
         int StringGetFirstCharacterIndex(String str, Char c)
@@ -112,6 +151,16 @@
                 return false;
         }
 
+        bool LineIsSection(ref String line)
+        {
+            line = String.Concat(line.Where(c => !Char.IsWhiteSpace(c)));
+
+            if (!String.IsNullOrEmpty(line) && line[0] == '[' && line[line.Length - 1] == ']')
+                return true;
+
+            return false;
+        }
+
         String GetStringName(ref string line)
         {
             line = String.Concat(line.Where(c => !Char.IsWhiteSpace(c)));
@@ -129,27 +178,74 @@
             return output;
         }
 
-        public String read(String StringName)
+        public bool Contains(String TypeName, Types Type)
+        {
+            if (Type == Types.STRING)
+            {
+                foreach (var i in strs)
+                {
+                    if (i.Item1 == TypeName)
+                        return true;
+                }
+            }
+            else if (Type == Types.SECTION)
+            {
+                foreach (var i in sections)
+                {
+                    if (i.Item1 == TypeName)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool Contains(String SectionName, String StringName)
+        {
+            foreach (var i in sections)
+            {
+                if (i.Item1 == SectionName)
+                {
+                    foreach (var x in i.Item2)
+                    {
+                        if (x.Item1 == StringName)
+                            return true;
+                    }
+
+                    break;
+                }
+            }
+
+            return false;
+        }
+
+        public String Read(String StringName)
         {
             String output = "";
-
-            bool found = false;
 
             foreach (var i in strs)
             {
                 if (i.Item1 == StringName)
-                {
                     output = i.Item2;
-
-                    found = true;
-                }
             }
 
-            if (!found)
-            {
-                Console.WriteLine($"[CfgMan][Error]: Could not find the string called \"{StringName}\"...");
+            return output;
+        }
 
-                Environment.Exit(1);
+        public String Read(String SectionName, String StringName)
+        {
+            String output = "";
+
+            foreach (var i in sections)
+            {
+                if (i.Item1 == SectionName)
+                {
+                    foreach (var x in i.Item2)
+                    {
+                        if (x.Item1 == StringName)
+                            output = x.Item2;
+                    }
+                }
             }
 
             return output;
